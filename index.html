@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NYC Food Protection Flashcards</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React and ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- Babel for JSX transformation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        .rotate-x-180 {
+            transform: rotateX(180deg);
+        }
+        .backface-hidden {
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+        }
+        .transform-style-preserve-3d {
+            transform-style: preserve-3d;
+            -webkit-transform-style: preserve-3d;
+        }
+        .flip-card {
+            transform-style: preserve-3d;
+            -webkit-transform-style: preserve-3d;
+        }
+        .flip-card.flipped {
+            transform: rotateX(180deg);
+        }
+        .flip-card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+        }
+        .flip-card-back {
+            transform: rotateX(180deg);
+        }
+        @keyframes slideInFromRight {
+            from {
+                transform: translateX(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        @keyframes slideInFromLeft {
+            from {
+                transform: translateX(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        
+        // Lucide React icons as inline SVG components
+        const ChevronLeft = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15,18 9,12 15,6"></polyline>
+            </svg>
+        );
+        
+        const ChevronRight = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9,18 15,12 9,6"></polyline>
+            </svg>
+        );
+
+        const TRANSLATIONS = {
+            "en-US": {
+                "createFlashcardsTitle": "Create flashcards",
+                "pasteTextTab": "Paste text",
+                "describeTopicTab": "Describe topic",
+                "describeTopicPlaceholder": "Describe a topic Claude will generate the details...\n\ne.g. capitals of the world\ne.g. fun facts about San Diego",
+                "pasteTextPlaceholder": "Paste your text here...",
+                "generateFlashcardsButton": "Generate flashcards",
+                "generatingTitle": "Generating your flashcard set...",
+                "generatingSubtitle": "This may take a while depending on the upload...",
+                "flipInstruction": "Use ↑↓ arrows or click to flip",
+                "createNewFlashcardsLink": "Create new flashcards"
+            }
+        };
+
+        const appLocale = 'en-US';
+        const browserLocale = navigator.languages?.[0] || navigator.language || 'en-US';
+        const findMatchingLocale = (locale) => {
+            if (TRANSLATIONS[locale]) return locale;
+            const lang = locale.split('-')[0];
+            const match = Object.keys(TRANSLATIONS).find(key => key.startsWith(lang + '-'));
+            return match || 'en-US';
+        };
+        const locale = findMatchingLocale(appLocale);
+        const t = (key) => TRANSLATIONS[locale]?.[key] || TRANSLATIONS['en-US'][key] || key;
+
+        // Complete flashcard dataset for NYC Food Protection Certificate
+        const FLASHCARD_DATA = [
+  {
+    "front": "NYC Food Service Permit",
+    "back": "All food service establishments must have a current and valid permit issued by NYC Health Department"
+  },
+  {
+    "front": "Health Inspector Rights",
+    "back": "Have right to inspect any operating food service establishment and must be given access to all areas"
+  },
+  {
+    "front": "Food Protection Certificate",
+    "back": "Required for supervisors of all food service establishments per NYC Health Code"
+  },
+  {
+    "front": "Food Definition",
+    "back": "Any edible substance, ice, beverage or ingredient used or sold for human consumption"
+  },
+  {
+    "front": "Potentially Hazardous Foods (PHFs)",
+    "back": "Foods that support rapid growth of microorganisms - includes raw/cooked meats, poultry, milk products, fish, shellfish, tofu, cooked rice, pasta, beans, potatoes, garlic in oil"
+  },
+  {
+    "front": "Temperature Danger Zone",
+    "back": "Between 41°F and 140°F - range where most harmful microorganisms reproduce rapidly"
+  },
+  {
+    "front": "Approved Thermometer Types",
+    "back": "Bimetallic stem (0°F to 220°F), thermocouple, and thermistor (digital). Glass thermometers are prohibited by law"
+  },
+  {
+    "front": "USDA Inspection Stamp",
+    "back": "Meat inspected by USDA must have a USDA inspection stamp"
+  },
+  {
+    "front": "Smoked Fish Storage",
+    "back": "Must be held at or below 38°F to prevent Clostridium botulinum growth"
+  },
+  {
+    "front": "Shellfish Tags",
+    "back": "Must be received with shellfish tags and kept on file for at least 90 days after product is used"
+  },
+  {
+    "front": "Milk Storage Requirements",
+    "back": "Pasteurized milk: 9-day sell-by dates; Ultra-pasteurized milk: 45-day sell-by dates"
+  },
+  {
+    "front": "Raw Fruits and Vegetables",
+    "back": "All fruits and vegetables served raw must be thoroughly washed before serving"
+  },
+  {
+    "front": "Modified Atmosphere Packaging",
+    "back": "All commercial foods in modified atmosphere packaging must be used per manufacturer's specifications"
+  },
+  {
+    "front": "Vacuum Packaging Prohibition",
+    "back": "Prohibited in retail food establishments unless special authorization from NYC Health Department"
+  },
+  {
+    "front": "FIFO Method",
+    "back": "First In First Out - first step is to date the products"
+  },
+  {
+    "front": "Food Storage Height",
+    "back": "All food items must be stored at least 6 inches off the floor per NYC Health Code"
+  },
+  {
+    "front": "Raw vs Cooked Food Storage",
+    "back": "Raw foods must be stored below cooked foods to prevent cross-contamination"
+  },
+  {
+    "front": "Cold Food Temperature",
+    "back": "All cold foods must be held at or below 41°F (except smoked fish at 38°F or below)"
+  },
+  {
+    "front": "Dry Storage Requirements",
+    "back": "Keep well-lit and ventilated; never store under wastewater lines"
+  },
+  {
+    "front": "Food Container Requirements",
+    "back": "Stored food must be covered and stored in vermin-proof containers"
+  },
+  {
+    "front": "Ice for Human Consumption",
+    "back": "Cannot be used for storing cans, bottles or other food products"
+  },
+  {
+    "front": "Foods Stored in Ice",
+    "back": "Water from ice must be drained constantly when foods are stored directly in ice"
+  },
+  {
+    "front": "Required Posted Signs",
+    "back": "First Aid Choking poster in eating areas, Alcohol & Pregnancy Warning (if serving alcohol), Wash Hands signs at sinks, No Smoking signs throughout facility"
+  },
+  {
+    "front": "Three Main Health Hazards",
+    "back": "Physical (foreign objects), Chemical (harmful chemicals), Biological (microorganisms)"
+  },
+  {
+    "front": "Physical Hazard Example",
+    "back": "Presence of foreign objects like glass fragments or pieces of metal in food"
+  },
+  {
+    "front": "Chemical Hazard Example",
+    "back": "Presence of harmful chemicals like pesticides, cleaning agents, or prescription medicine in food"
+  },
+  {
+    "front": "Biological Hazard",
+    "back": "Presence of microorganisms (bacteria, viruses, parasites, fungi) in food"
+  },
+  {
+    "front": "Contaminated Food Appearance",
+    "back": "Foods contaminated with harmful bacteria often show no change in appearance, taste, or smell"
+  },
+  {
+    "front": "Bacterial Doubling Time",
+    "back": "Under favorable conditions, bacteria can double every 20 to 30 minutes"
+  },
+  {
+    "front": "Four Phases of Bacterial Growth",
+    "back": "Lag, log, stationary, and death phases"
+  },
+  {
+    "front": "Most Rapid Bacterial Growth",
+    "back": "Takes place in the log phase"
+  },
+  {
+    "front": "FATTOM Factors",
+    "back": "Six factors affecting bacterial growth: Food, Acidity, Temperature, Time, Oxygen, Moisture"
+  },
+  {
+    "front": "Virus Reproduction in Food",
+    "back": "Viruses cannot reproduce in food but can be transmitted to people if they get into food"
+  },
+  {
+    "front": "Common Food-borne Viruses",
+    "back": "Hepatitis A and norovirus - transmitted through contaminated food/water with infected person's feces"
+  },
+  {
+    "front": "Trichinella spiralis Prevention",
+    "back": "Cook pork to 150°F for 15 seconds to prevent trichinosis"
+  },
+  {
+    "front": "Anisakis simplex",
+    "back": "Food-borne parasite typically found in marine fish"
+  },
+  {
+    "front": "Salmonella enteritidis",
+    "back": "Bacterium commonly found in raw poultry and raw shell eggs"
+  },
+  {
+    "front": "Clostridium perfringens Control",
+    "back": "Control growth by rapid cooling, rapid reheating, and avoiding advance food preparation"
+  },
+  {
+    "front": "Staphylococcus aureus",
+    "back": "Bacterium commonly carried by healthy humans - prevented by good hygiene and avoiding bare hand contact with ready-to-eat foods"
+  },
+  {
+    "front": "Ill Food Workers",
+    "back": "Workers with transmissible illness should not work until fully recovered"
+  },
+  {
+    "front": "Ground Meat Cooking Temperature",
+    "back": "Must be cooked to minimum 158°F to eliminate E. coli O157:H7"
+  },
+  {
+    "front": "Clostridium botulinum",
+    "back": "Causes botulism - associated with home-canned foods, smoked fish, garlic in oil, anaerobic environments"
+  },
+  {
+    "front": "Scombroid Poisoning",
+    "back": "From eating fish with high histamines (tuna, mackerel, bonito, mahi mahi, bluefish) due to time/temperature abuse"
+  },
+  {
+    "front": "Hand Washing Requirements",
+    "back": "Wash after: starting work, handling raw foods, using toilet, coughing, sneezing, smoking, eating, drinking, scratching"
+  },
+  {
+    "front": "Hand Washing Sink Distance",
+    "back": "Must be readily accessible within 25 feet of food prep areas and in/near all toilets"
+  },
+  {
+    "front": "Hand Washing Sink Supplies",
+    "back": "Must have soap, hot/cold running water, disposable towels or hand dryer, and 'Wash Hands' sign"
+  },
+  {
+    "front": "Food Worker Attire Requirements",
+    "back": "Proper hair restraints, clean aprons/garments, no jewelry on arms/hands (except wedding bands/medical bracelets), avoid makeup"
+  },
+  {
+    "front": "Three Acceptable Thawing Methods",
+    "back": "Refrigerating, placing under cold running water, or defrosting in microwave with continuous cooking"
+  },
+  {
+    "front": "Cross Contamination",
+    "back": "Occurs when bacteria from raw food get into cooked or ready-to-eat food"
+  },
+  {
+    "front": "Poultry Cooking Temperature",
+    "back": "Poultry, stuffed meat, and stuffing must be cooked to 165°F"
+  },
+  {
+    "front": "Pork Cooking Temperature",
+    "back": "Must be cooked to internal temperature of 150°F"
+  },
+  {
+    "front": "Raw Shell Eggs Cooking",
+    "back": "Must be cooked to minimum temperature of 145°F"
+  },
+  {
+    "front": "Fish and Other Meats Cooking",
+    "back": "Fish, shellfish, beef, lamb, and other meats must be cooked to minimum 140°F"
+  },
+  {
+    "front": "Hot Holding Temperature",
+    "back": "All hot foods in hot holding unit must be held at 140°F or higher"
+  },
+  {
+    "front": "Rapid Cooling Methods",
+    "back": "Ice-water bath with stirring, 1-2 inch deep in 4-inch pans, rapid chill unit, cutting into pieces 6 lbs or less"
+  },
+  {
+    "front": "Covering Hot Foods for Cooling",
+    "back": "Hot foods in refrigerator must be covered only after completely cooled to 41°F or below"
+  },
+  {
+    "front": "Reheating Temperature",
+    "back": "Previously cooked refrigerated foods must be rapidly reheated to 165°F using stove or oven, never hot holding unit"
+  },
+  {
+    "front": "Ready-to-Eat Food Handling",
+    "back": "Never use bare hands - always wear clean gloves or use tongs, spatula, deli paper, or serving spoon"
+  },
+  {
+    "front": "Disposable Glove Usage",
+    "back": "Change gloves often to prevent food contamination"
+  },
+  {
+    "front": "Air Breaks Required",
+    "back": "Must be provided in all culinary and pot/dish washing sinks"
+  },
+  {
+    "front": "Atmospheric Vacuum Breakers (AVB)",
+    "back": "Must be installed in equipment with direct potable water connection (ice machines, coffee machines, dishwashers)"
+  },
+  {
+    "front": "Cross-Connection Prevention",
+    "back": "Install hose bib vacuum breaker"
+  },
+  {
+    "front": "Gas-Fired Water Heaters",
+    "back": "Must be installed by licensed plumber and monitored for back draft"
+  },
+  {
+    "front": "Grease Disposal",
+    "back": "Illegal to dump grease in sink without proper grease interceptor"
+  },
+  {
+    "front": "Manual Dishwashing Sequence",
+    "back": "Wash, rinse, sanitize, and air-dry"
+  },
+  {
+    "front": "Cutting Board Sanitation",
+    "back": "Between each use, must be washed, rinsed, and sanitized"
+  },
+  {
+    "front": "Hot-Water Sanitizing",
+    "back": "Immerse utensils in 170°F water for at least 30 seconds"
+  },
+  {
+    "front": "50 PPM Chlorine Solution",
+    "back": "½ ounce bleach to 1 gallon water - for immersing utensils 1 minute"
+  },
+  {
+    "front": "100 PPM Chlorine Solution",
+    "back": "1 ounce bleach to 1 gallon water - for wiping, spraying, or pouring"
+  },
+  {
+    "front": "Wiping Cloth Storage",
+    "back": "Must be stored in 50 PPM sanitizing solution"
+  },
+  {
+    "front": "Chemical Sanitization Testing",
+    "back": "Chemical solution must be checked with test kit"
+  },
+  {
+    "front": "Patron Bathroom Requirement",
+    "back": "Must be provided when there are 20 or more seats in dining area"
+  },
+  {
+    "front": "Integrated Pest Management Strategies",
+    "back": "Three key strategies: starve them, build them out, destroy them"
+  },
+  {
+    "front": "Mouse Control Method",
+    "back": "When food is unavailable, mice will move out of restaurant"
+  },
+  {
+    "front": "Rat Entry Point Size",
+    "back": "Can enter buildings through openings as small as a quarter"
+  },
+  {
+    "front": "Fresh Rat Droppings",
+    "back": "Presence in food establishment is a critical violation"
+  },
+  {
+    "front": "Pesticide Application",
+    "back": "Insecticides and rodenticides can only be applied by licensed pest control officer"
+  },
+  {
+    "front": "Best Fly and Roach Elimination",
+    "back": "Proper cleaning and sanitizing"
+  },
+  {
+    "front": "HACCP Definition",
+    "back": "Hazard Analysis and Critical Control Point - system of food safety to control harmful microorganisms"
+  },
+  {
+    "front": "Seven HACCP Principles",
+    "back": "Identify hazards, determine CCPs, set critical limits, monitor CCPs, take corrective actions, verify system, keep records"
+  },
+  {
+    "front": "Critical Control Point (CCP)",
+    "back": "Any point in food flow where action must be taken to eliminate hazards"
+  },
+  {
+    "front": "Temperature Danger Zone Time Limit",
+    "back": "If PHFs left in danger zone more than 2 hours, food is unsafe and must be discarded"
+  },
+  {
+    "front": "Cold Salad Best Practice",
+    "back": "Pre-chill ingredients when making cold salads like tuna"
+  },
+  {
+    "front": "Artificial Trans Fat",
+    "back": "Increases LDL (bad cholesterol) leading to heart disease - banned from all restaurant foods"
+  },
+  {
+    "front": "Self-Assessment Purpose",
+    "back": "Routinely conduct to improve food safety, security, and general work practices"
+  },
+  {
+    "front": "Common Restaurant Worker Injuries",
+    "back": "Slips, trips, falls, cuts, lacerations, burns, muscle strains, sprains, electrocution"
+  },
+  {
+    "front": "Slip Prevention",
+    "back": "Food workers must wear slip-resistant shoes"
+  }
+];
+
+        const FlashcardApp = () => {
+            const [mode, setMode] = useState('study'); // 'create', 'loading', 'study'
+            const [topic, setTopic] = useState('');
+            const [flashcards, setFlashcards] = useState(FLASHCARD_DATA);
+            const [currentIndex, setCurrentIndex] = useState(0);
+            const [flipped, setFlipped] = useState(false);
+            const [activeTab, setActiveTab] = useState('describe');
+            const [animating, setAnimating] = useState(false);
+
+            const generateFlashcards = async () => {
+                if (!topic.trim()) return;
+                
+                setMode('loading');
+                
+                // For demo purposes, we'll just use the default flashcards
+                // In a real app, this would call an AI API
+                setTimeout(() => {
+                    setFlashcards(FLASHCARD_DATA);
+                    setCurrentIndex(0);
+                    setFlipped(false);
+                    setMode('study');
+                }, 2000);
+            };
+
+            const handleFlip = () => {
+                setFlipped(!flipped);
+            };
+
+            const handleNext = () => {
+                if (currentIndex < flashcards.length - 1 && !animating) {
+                    setAnimating(true);
+                    setTimeout(() => {
+                        setFlipped(false);
+                        setCurrentIndex(currentIndex + 1);
+                        setTimeout(() => setAnimating(false), 50);
+                    }, 150);
+                }
+            };
+
+            const handlePrevious = () => {
+                if (currentIndex > 0 && !animating) {
+                    setAnimating(true);
+                    setTimeout(() => {
+                        setFlipped(false);
+                        setCurrentIndex(currentIndex - 1);
+                        setTimeout(() => setAnimating(false), 50);
+                    }, 150);
+                }
+            };
+
+            const handleKeyPress = (e) => {
+                if (mode === 'study') {
+                    if (e.key === 'ArrowLeft') handlePrevious();
+                    if (e.key === 'ArrowRight') handleNext();
+                    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        handleFlip();
+                    }
+                }
+            };
+
+            useEffect(() => {
+                window.addEventListener('keydown', handleKeyPress);
+                return () => window.removeEventListener('keydown', handleKeyPress);
+            }, [mode, currentIndex, flashcards.length, flipped, animating]);
+
+            if (mode === 'create') {
+                return (
+                    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#6A9BCC' }}>
+                        <div className="w-full max-w-lg p-8">
+                            <h1 className="text-white text-4xl font-bold text-center mb-8">{t('createFlashcardsTitle')}</h1>
+                            
+                            <div className="flex justify-center mb-6">
+                                <div className="bg-white/20 p-0.5 rounded-full inline-flex">
+                                    <button
+                                        onClick={() => setActiveTab('paste')}
+                                        className={`px-6 py-2 rounded-full font-medium transition-all text-base ${
+                                            activeTab === 'paste' 
+                                                ? 'bg-white text-gray-700 shadow-md' 
+                                                : 'text-white hover:text-white/90'
+                                        }`}
+                                    >
+                                        {t('pasteTextTab')}
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveTab('describe')}
+                                        className={`px-6 py-2 rounded-full font-medium transition-all text-base ${
+                                            activeTab === 'describe' 
+                                                ? 'bg-white text-gray-700 shadow-md' 
+                                                : 'text-white hover:text-white/90'
+                                        }`}
+                                    >
+                                        {t('describeTopicTab')}
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div className="bg-white rounded-3xl p-8 shadow-lg">
+                                <textarea
+                                    value={topic}
+                                    onChange={(e) => setTopic(e.target.value)}
+                                    placeholder={activeTab === 'describe' 
+                                        ? t('describeTopicPlaceholder')
+                                        : t('pasteTextPlaceholder')}
+                                    className="w-full h-52 text-gray-900 placeholder-gray-400 resize-none focus:outline-none"
+                                    style={{ fontSize: '18px', lineHeight: '1.6' }}
+                                />
+                            </div>
+                            
+                            <button
+                                onClick={generateFlashcards}
+                                className="w-full mt-8 py-4 bg-gray-900 text-white font-medium rounded-full hover:bg-gray-800 transition-colors text-lg"
+                            >
+                                {t('generateFlashcardsButton')}
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (mode === 'loading') {
+                return (
+                    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#6A9BCC' }}>
+                        <div className="text-center">
+                            <h1 className="text-white text-4xl font-medium mb-4">{t('generatingTitle')}</h1>
+                            <p className="text-white/80 mb-8">{t('generatingSubtitle')}</p>
+                            <div className="flex justify-center">
+                                <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (mode === 'study') {
+                const currentCard = flashcards[currentIndex];
+                
+                return (
+                    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#6A9BCC' }}>
+                        <div className="w-full max-w-2xl px-8">
+                            <div className="relative" style={{ perspective: '1000px' }}>
+                                <div
+                                    className={`flip-card relative w-full h-96 transition-all duration-700 ${
+                                        flipped ? 'flipped' : ''
+                                    } ${animating ? 'scale-95 opacity-0' : 'scale-100 opacity-100'}`}
+                                >
+                                    {/* Front of card */}
+                                    <div className="flip-card-face bg-white rounded-3xl shadow-xl flex flex-col items-center justify-center p-8">
+                                        <div className="text-center flex-1 flex items-center justify-center">
+                                            <h2 className="text-4xl font-medium text-gray-800">{currentCard.front}</h2>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Back of card */}
+                                    <div className="flip-card-face flip-card-back bg-white rounded-3xl shadow-xl flex items-center justify-center p-8">
+                                        <div className="text-center">
+                                            <p className="text-xl text-gray-700 leading-relaxed">{currentCard.back}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* Flip Button */}
+                            <div className="flex justify-center mt-6">
+                                <button
+                                    onClick={handleFlip}
+                                    className="px-8 py-3 bg-white/20 text-white rounded-full font-medium hover:bg-white/30 active:bg-white/40 transition-all"
+                                    style={{ minHeight: '48px' }}
+                                >
+                                    {flipped ? 'Show Question' : 'Show Answer'}
+                                </button>
+                            </div>
+                            
+                            <div className="flex items-center justify-center mt-8">
+                                <button
+                                    onClick={handlePrevious}
+                                    disabled={currentIndex === 0}
+                                    className={`p-4 rounded-full transition-all touch-manipulation ${
+                                        currentIndex === 0 
+                                            ? 'bg-white/20 text-white/50 cursor-not-allowed' 
+                                            : 'bg-white/20 text-white hover:bg-white/30 active:bg-white/40'
+                                    }`}
+                                    style={{ minWidth: '56px', minHeight: '56px' }}
+                                >
+                                    <ChevronLeft size={28} />
+                                </button>
+                                
+                                <span className="mx-8 text-white text-lg font-medium">
+                                    {currentIndex + 1} / {flashcards.length}
+                                </span>
+                                
+                                <button
+                                    onClick={handleNext}
+                                    disabled={currentIndex === flashcards.length - 1}
+                                    className={`p-4 rounded-full transition-all touch-manipulation ${
+                                        currentIndex === flashcards.length - 1 
+                                            ? 'bg-white/20 text-white/50 cursor-not-allowed' 
+                                            : 'bg-white/20 text-white hover:bg-white/30 active:bg-white/40'
+                                    }`}
+                                    style={{ minWidth: '56px', minHeight: '56px' }}
+                                >
+                                    <ChevronRight size={28} />
+                                </button>
+                            </div>
+                            
+                            <div className="text-center mt-6">
+                                <button
+                                    onClick={() => {
+                                        setMode('create');
+                                        setTopic('');
+                                        setFlashcards(FLASHCARD_DATA);
+                                    }}
+                                    className="text-white/70 hover:text-white transition-colors underline-offset-2 hover:underline"
+                                >
+                                    {t('createNewFlashcardsLink')}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+        };
+
+        // Render the app
+        ReactDOM.render(<FlashcardApp />, document.getElementById('root'));
+    </script>
+</body>
+</html>
