@@ -30,6 +30,9 @@
         .flip-card {
             transform-style: preserve-3d;
             -webkit-transform-style: preserve-3d;
+            position: relative;
+            width: 100%;
+            height: 100%;
         }
         .flip-card.flipped {
             transform: rotateX(180deg);
@@ -40,6 +43,13 @@
             height: 100%;
             -webkit-backface-visibility: hidden;
             backface-visibility: hidden;
+            top: 0;
+            left: 0;
+            border-radius: 24px;
+            display: block;
+        }
+        .flip-card-front {
+            transform: rotateX(0deg);
         }
         .flip-card-back {
             transform: rotateX(180deg);
@@ -82,6 +92,18 @@
         const ChevronRight = ({ size = 24 }) => (
             <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="9,18 15,12 9,6"></polyline>
+            </svg>
+        );
+
+        const Star = ({ size = 24, filled = false }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"></polygon>
+            </svg>
+        );
+
+        const Filter = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="22,3 2,3 10,12.46 10,19 14,21 14,12.46"></polygon>
             </svg>
         );
 
@@ -556,6 +578,18 @@
 ];
 
         const FlashcardApp = () => {
+            // Test localStorage availability
+            const isLocalStorageAvailable = (() => {
+                try {
+                    const testKey = '__localStorage_test__';
+                    localStorage.setItem(testKey, 'test');
+                    localStorage.removeItem(testKey);
+                    return true;
+                } catch (e) {
+                    return false;
+                }
+            })();
+
             const [mode, setMode] = useState('study'); // 'create', 'loading', 'study'
             const [topic, setTopic] = useState('');
             const [flashcards, setFlashcards] = useState(FLASHCARD_DATA);
@@ -563,6 +597,72 @@
             const [flipped, setFlipped] = useState(false);
             const [activeTab, setActiveTab] = useState('describe');
             const [animating, setAnimating] = useState(false);
+            const [favorites, setFavorites] = useState(() => {
+                if (!isLocalStorageAvailable) {
+                    console.warn('localStorage not available');
+                    return new Set();
+                }
+                try {
+                    const saved = localStorage.getItem('flashcard-favorites');
+                    console.log('Loading favorites from localStorage:', saved);
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        console.log('Parsed favorites:', parsed);
+                        return new Set(Array.isArray(parsed) ? parsed : []);
+                    }
+                } catch (error) {
+                    console.warn('Error loading favorites from localStorage:', error);
+                }
+                return new Set();
+            });
+            const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
+
+            // Get filtered flashcards based on favorites toggle
+            const filteredFlashcards = showOnlyFavorites 
+                ? FLASHCARD_DATA.filter((_, index) => favorites.has(index))
+                : FLASHCARD_DATA;
+
+            // Save favorites to localStorage whenever favorites change
+            useEffect(() => {
+                if (!isLocalStorageAvailable) return;
+                
+                try {
+                    const favoritesArray = [...favorites];
+                    console.log('Saving favorites to localStorage:', favoritesArray);
+                    localStorage.setItem('flashcard-favorites', JSON.stringify(favoritesArray));
+                } catch (error) {
+                    console.warn('Error saving favorites to localStorage:', error);
+                }
+            }, [favorites, isLocalStorageAvailable]);
+
+            // Toggle favorite status of current card
+            const toggleFavorite = () => {
+                const currentCardIndex = showOnlyFavorites 
+                    ? FLASHCARD_DATA.findIndex(card => card === filteredFlashcards[currentIndex])
+                    : currentIndex;
+                
+                console.log('Toggling favorite for card index:', currentCardIndex);
+                console.log('Current favorites:', [...favorites]);
+                
+                const newFavorites = new Set(favorites);
+                if (newFavorites.has(currentCardIndex)) {
+                    newFavorites.delete(currentCardIndex);
+                    console.log('Removed from favorites');
+                } else {
+                    newFavorites.add(currentCardIndex);
+                    console.log('Added to favorites');
+                }
+                
+                console.log('New favorites:', [...newFavorites]);
+                setFavorites(newFavorites);
+            };
+
+            // Toggle between showing all cards vs favorites only
+            const toggleShowFavorites = () => {
+                setShowOnlyFavorites(!showOnlyFavorites);
+                setCurrentIndex(0);
+                setFlipped(false);
+            };
 
             const generateFlashcards = async () => {
                 if (!topic.trim()) return;
@@ -584,7 +684,7 @@
             };
 
             const handleNext = () => {
-                if (currentIndex < flashcards.length - 1 && !animating) {
+                if (currentIndex < filteredFlashcards.length - 1 && !animating) {
                     setAnimating(true);
                     setTimeout(() => {
                         setFlipped(false);
@@ -619,7 +719,7 @@
             useEffect(() => {
                 window.addEventListener('keydown', handleKeyPress);
                 return () => window.removeEventListener('keydown', handleKeyPress);
-            }, [mode, currentIndex, flashcards.length, flipped, animating]);
+            }, [mode, currentIndex, filteredFlashcards.length, flipped, animating]);
 
             if (mode === 'create') {
                 return (
@@ -690,11 +790,70 @@
             }
 
             if (mode === 'study') {
-                const currentCard = flashcards[currentIndex];
+                // Handle case where favorites filter is on but no favorites exist
+                if (showOnlyFavorites && favorites.size === 0) {
+                    return (
+                        <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#6A9BCC' }}>
+                            <div className="w-full max-w-2xl px-8 text-center">
+                                <div className="flex justify-between items-center mb-8">
+                                    <button
+                                        onClick={toggleShowFavorites}
+                                        className="flex items-center gap-2 px-4 py-2 rounded-full font-medium bg-yellow-400 text-gray-900"
+                                    >
+                                        <Filter size={20} />
+                                        Favorites (0)
+                                    </button>
+                                </div>
+                                <div className="bg-white rounded-3xl p-12 shadow-xl">
+                                    <div className="text-6xl mb-4">⭐</div>
+                                    <h2 className="text-2xl font-medium text-gray-800 mb-4">No Favorites Yet</h2>
+                                    <p className="text-gray-600 mb-6">Start studying and click the star icon on cards you want to save as favorites!</p>
+                                    <button
+                                        onClick={toggleShowFavorites}
+                                        className="px-6 py-3 bg-blue-500 text-white rounded-full font-medium hover:bg-blue-600 transition-colors"
+                                    >
+                                        View All Cards
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                }
+
+                const currentCard = filteredFlashcards[currentIndex];
+                const currentCardIndex = showOnlyFavorites 
+                    ? FLASHCARD_DATA.findIndex(card => card === currentCard)
+                    : currentIndex;
+                const isFavorited = favorites.has(currentCardIndex);
                 
                 return (
                     <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#6A9BCC' }}>
                         <div className="w-full max-w-2xl px-8">
+                            {/* Header with filter toggle */}
+                            <div className="flex justify-between items-center mb-6">
+                                <button
+                                    onClick={toggleShowFavorites}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all ${
+                                        showOnlyFavorites 
+                                            ? 'bg-yellow-400 text-gray-900' 
+                                            : 'bg-white/20 text-white hover:bg-white/30'
+                                    }`}
+                                >
+                                    <Filter size={20} />
+                                    {showOnlyFavorites ? `Favorites (${favorites.size})` : 'All Cards'}
+                                </button>
+                                <div className="flex items-center gap-2">
+                                    {/* Debug info */}
+                                    <div className="text-white/70 text-xs">
+                                        LS: {isLocalStorageAvailable ? '✓' : '✗'} | Favs: {favorites.size}
+                                    </div>
+                                    {showOnlyFavorites && favorites.size === 0 && (
+                                        <div className="text-white/70 text-sm">
+                                            No favorites yet. Star some cards!
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                             <div className="relative" style={{ perspective: '1000px' }}>
                                 <div
                                     className={`flip-card relative w-full h-96 transition-all duration-700 ${
@@ -702,15 +861,35 @@
                                     } ${animating ? 'scale-95 opacity-0' : 'scale-100 opacity-100'}`}
                                 >
                                     {/* Front of card */}
-                                    <div className="flip-card-face bg-white rounded-3xl shadow-xl flex flex-col items-center justify-center p-8">
-                                        <div className="text-center flex-1 flex items-center justify-center">
+                                    <div className="flip-card-face flip-card-front bg-white shadow-xl p-8">
+                                        <button
+                                            onClick={toggleFavorite}
+                                            className={`absolute top-4 right-4 p-2 rounded-full transition-all ${
+                                                isFavorited 
+                                                    ? 'text-yellow-500 hover:text-yellow-600' 
+                                                    : 'text-gray-400 hover:text-yellow-500'
+                                            }`}
+                                        >
+                                            <Star size={24} filled={isFavorited} />
+                                        </button>
+                                        <div className="h-full flex items-center justify-center text-center">
                                             <h2 className="text-4xl font-medium text-gray-800">{currentCard.front}</h2>
                                         </div>
                                     </div>
                                     
                                     {/* Back of card */}
-                                    <div className="flip-card-face flip-card-back bg-white rounded-3xl shadow-xl flex items-center justify-center p-8">
-                                        <div className="text-center">
+                                    <div className="flip-card-face flip-card-back bg-white shadow-xl p-8">
+                                        <button
+                                            onClick={toggleFavorite}
+                                            className={`absolute top-4 right-4 p-2 rounded-full transition-all ${
+                                                isFavorited 
+                                                    ? 'text-yellow-500 hover:text-yellow-600' 
+                                                    : 'text-gray-400 hover:text-yellow-500'
+                                            }`}
+                                        >
+                                            <Star size={24} filled={isFavorited} />
+                                        </button>
+                                        <div className="h-full flex items-center justify-center text-center">
                                             <p className="text-xl text-gray-700 leading-relaxed">{currentCard.back}</p>
                                         </div>
                                     </div>
@@ -743,14 +922,14 @@
                                 </button>
                                 
                                 <span className="mx-8 text-white text-lg font-medium">
-                                    {currentIndex + 1} / {flashcards.length}
+                                    {currentIndex + 1} / {filteredFlashcards.length}
                                 </span>
                                 
                                 <button
                                     onClick={handleNext}
-                                    disabled={currentIndex === flashcards.length - 1}
+                                    disabled={currentIndex === filteredFlashcards.length - 1}
                                     className={`p-4 rounded-full transition-all touch-manipulation ${
-                                        currentIndex === flashcards.length - 1 
+                                        currentIndex === filteredFlashcards.length - 1 
                                             ? 'bg-white/20 text-white/50 cursor-not-allowed' 
                                             : 'bg-white/20 text-white hover:bg-white/30 active:bg-white/40'
                                     }`}
